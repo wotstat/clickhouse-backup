@@ -34,7 +34,11 @@ jobs:
           printf 'NIC speed Mbit/s: '
           cat /sys/class/net/enp7s0/speed
           backup_pid=$(docker top backup-clickhouse-backup-1 -eo pid,args | awk '/clickhouse-backup watch/ {print $1; exit}')
-          printf 'Backup IO before:\n'
+          printf 'Backup TCP connections:\n'
+          ss -tnp | awk -v pid="$backup_pid" 'index($0,"pid="pid",")'
+          printf 'Backup file descriptors:\n'
+          ls -l /proc/$backup_pid/fd | awk '/\/backup\//'
+          printf 'Backup IO before:\n' 
           cat /proc/$backup_pid/io
           date -u
           cat /proc/net/dev
