@@ -1,42 +1,38 @@
-name: deployment
+name: backup verification
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
-  deploy:
+  verify:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Copy .env
-        env:
-          DOTENV: ${{ secrets.DOTENV }}
-        run: cat <<< "$DOTENV" > ./.env
-
       - name: Configure SSH
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
         run: |
           mkdir -p ~/.ssh/
-          echo "$SSH_KEY" > ~/.ssh/production.key
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/production.key
           chmod 600 ~/.ssh/production.key
-          cat >>~/.ssh/config <<END
+          cat > ~/.ssh/config <<END
           Host node
             HostName $SSH_HOST
             User $SSH_USER
             IdentityFile ~/.ssh/production.key
             StrictHostKeyChecking no
           END
-        env:
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_KEY: ${{ secrets.SSH_KEY }}
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-
-      - name: Copy to server
-        run: rsync -avz ./ node:/${{ vars.APP_PATH }}
-
-      - name: Run deploy script
-        run: ssh node "cd ${{ vars.APP_PATH }}; bash rerun.sh"
+      - name: Inspect backup without restarting it
+        run: |
+          ssh node 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          docker inspect backup-clickhouse-backup-1 --format 'status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}'
+          docker inspect backup-clickhouse-backup-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | awk '/^(UPLOAD_CONCURRENCY|S3_CONCURRENCY)=/'
+          docker top backup-clickhouse-backup-1 -eo pid,ppid,pcpu,pmem,etime,args
+          date -u
+          cat /proc/net/dev
+          sleep 10
+          date -u
+          cat /proc/net/dev
+          REMOTE
