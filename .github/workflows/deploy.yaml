@@ -30,9 +30,17 @@ jobs:
           docker inspect backup-clickhouse-backup-1 --format 'status={{.State.Status}} started={{.State.StartedAt}} restarts={{.RestartCount}}'
           docker inspect backup-clickhouse-backup-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | awk '/^(UPLOAD_CONCURRENCY|S3_CONCURRENCY)=/'
           docker top backup-clickhouse-backup-1 -eo pid,ppid,pcpu,pmem,etime,args
+          docker exec backup-clickhouse-backup-1 clickhouse-backup print-config | awk '/^[[:space:]]+(upload_concurrency|concurrency|chunk_size|retry_mode):/'
+          printf 'NIC speed Mbit/s: '
+          cat /sys/class/net/enp7s0/speed
+          backup_pid=$(docker top backup-clickhouse-backup-1 -eo pid,args | awk '/clickhouse-backup watch/ {print $1; exit}')
+          printf 'Backup IO before:\n'
+          cat /proc/$backup_pid/io
           date -u
           cat /proc/net/dev
           sleep 10
+          printf 'Backup IO after:\n'
+          cat /proc/$backup_pid/io
           date -u
           cat /proc/net/dev
           REMOTE
