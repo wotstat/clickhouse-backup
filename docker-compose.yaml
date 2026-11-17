@@ -17,8 +17,9 @@ services:
       - S3_ACCESS_KEY
       - S3_SECRET_KEY
       - REMOTE_STORAGE=s3
+      # Two tables x two parts x eight S3 streams: up to 32 concurrent transfers.
       - UPLOAD_CONCURRENCY=2
-      - S3_CONCURRENCY=2
+      - S3_CONCURRENCY=8
       - WATCH_INTERVAL=24h
       - FULL_INTERVAL=504h
       - WATCH_BACKUP_NAME_TEMPLATE=prod-{type}-{time:2006-01-02T15-04-05}
